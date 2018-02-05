@@ -1,20 +1,26 @@
 import React from 'react'
 import Person from './components/Person'
+import Notification from './components/Notification'
+import personService from './services/persons'
 
 class App extends React.Component {
   constructor(props) {
     super(props)
     this.state = {
-      persons: [
-        { name: 'Arto Hellas', number: '040-123456' },
-        { name: 'Martti Tienari', number: '040-123456' },
-        { name: 'Arto Järvinen', number: '040-123456' },
-        { name: 'Lea Kutvonen', number: '040-123456' }
-      ],
+      persons: [],
       newName: '',
       newNumber: '',
-      filter: ''
+      filter: '',
+      message: null
     }
+  }
+
+  componentWillMount() {
+    personService
+      .getAll()
+      .then(response => {
+        this.setState({ persons: response })
+      })
   }
 
   handleNameChange = (event) => {
@@ -28,9 +34,9 @@ class App extends React.Component {
   handleFilterChange = (event) => {
     this.setState({ filter: event.target.value })
   }
+
   addPerson = (event) => {
     event.preventDefault()
-
     const names = this.state.persons.map(person => person.name)
     if (names.indexOf(this.state.newName) > -1) {
       alert("Name already added")
@@ -39,19 +45,46 @@ class App extends React.Component {
         newNumber: ''
       })
     } else {
-    const nameObject = {
+    const personObject = {
       name: this.state.newName,
       number: this.state.newNumber
     }
 
-    const persons = this.state.persons.concat(nameObject)
-
-    this.setState({
-      persons,
+    personService
+    .create(personObject)
+    .then(newPerson => {
+      this.setState({
+      persons: this.state.persons.concat(newPerson),
       newName: '',
-      newNumber: ''
+      newNumber: '',
+      message: `Lisättiin '${newPerson.name}' onnistuneesti`
     })
+    setTimeout(() => {
+            this.setState({message: null})
+          }, 5000)
+  })
   }
+  }
+
+  removePerson = (id) => {
+    console.log("removePerson id")
+    const person = this.state.persons.find(p => p.id === id)
+
+    return () => {
+      personService
+        .remove(id)
+        .then(removedPerson => {
+          console.log(removedPerson)
+          const persons = this.state.persons.filter(n => n.id !== id)
+          this.setState({
+            persons: persons,
+            message: `Poistettiin '${person.name}' onnistuneesti`
+          })
+          setTimeout(() => {
+                  this.setState({message: null})
+                }, 5000)
+        })
+    }
   }
 
   render() {
@@ -65,10 +98,8 @@ class App extends React.Component {
 
     return (
       <div>
-        <div>
-          debug: {this.state.filter} {this.namesToShow}
-        </div>
         <h2>Puhelinluettelo</h2>
+        <Notification message={this.state.message}/>
         <div>
           rajaa näytettäviä<input
             value={this.state.filter}
@@ -93,7 +124,7 @@ class App extends React.Component {
           </div>
         </form>
         <h2>Numerot</h2>
-        {namesToShow.map(person => <Person key={person.name} person={person} />)}
+        {namesToShow.map(person => <Person key={person.id} person={person} removePerson={this.removePerson(person.id)}/>)}
       </div>
     )
   }
